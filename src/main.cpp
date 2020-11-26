@@ -14,100 +14,192 @@ Flash ide mode:  DIO
 
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
+#include <ESP8266HTTPClient.h>
 #include <WiFiUdp.h>
+#include <WiFiClient.h>
+#include <WiFiManager.h>
 #include <ArduinoOTA.h>
+#include <DHT.h>
+#include <LedControl.h>
+#include <NTPClient.h>
 
-#ifndef STASSID
-#define STASSID ""
-#define STAPSK ""
-#endif
+#define BUZZER_PIN 16
+#define DHT11_PIN 5
+#define PHOTODIODE_PIN A0
+#define BUTTON_PIN 0
+#define CS_PIN 4
+#define MOSI_PIN 13
+#define CLK_PIN 14
 
-const char *ssid = STASSID;
-const char *password = STAPSK;
-const char *host = "ESPClock";
+WiFiUDP NtpUDP;
+DHT Dht11(DHT11_PIN, DHT11);
+LedControl Display(MOSI_PIN, CLK_PIN, CS_PIN, 1);
+NTPClient TimeClient(NtpUDP, "europe.pool.ntp.org", 3600, 60000);
 
 void setup()
 {
     Serial.begin(115200);
     Serial.println("Booting");
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ssid, password);
-    while (WiFi.waitForConnectResult() != WL_CONNECTED)
+
+    WiFiManager wifiManager;
+    wifiManager.setConfigPortalTimeout(180);
+    wifiManager.autoConnect("ESPClock");
+
+    while (WiFi.status() != WL_CONNECTED)
     {
         Serial.println("Connection Failed! Rebooting...");
         delay(5000);
         ESP.restart();
-
-        // initialize digital pin LED_BUILTIN as an output.
-        pinMode(LED_BUILTIN, OUTPUT);
     }
 
-    // Port defaults to 8266
-    // ArduinoOTA.setPort(8266);
-
-    // Hostname defaults to esp8266-[ChipID]
-    ArduinoOTA.setHostname(host);
-
-    // No authentication by default
-    // ArduinoOTA.setPassword("admin");
-
-    // Password can be set with it's md5 value as well
-    // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
-    // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
-
-    ArduinoOTA.onStart([]() {
-        String type;
-        if (ArduinoOTA.getCommand() == U_FLASH)
-        {
-            type = "sketch";
-        }
-        else
-        { // U_FS
-            type = "filesystem";
-        }
-
-        // NOTE: if updating FS this would be the place to unmount FS using FS.end()
-        Serial.println("Start updating " + type);
-    });
-    ArduinoOTA.onEnd([]() { Serial.println("\nEnd"); });
-    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-        Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-    });
-    ArduinoOTA.onError([](ota_error_t error) {
-        Serial.printf("Error[%u]: ", error);
-        if (error == OTA_AUTH_ERROR)
-        {
-            Serial.println("Auth Failed");
-        }
-        else if (error == OTA_BEGIN_ERROR)
-        {
-            Serial.println("Begin Failed");
-        }
-        else if (error == OTA_CONNECT_ERROR)
-        {
-            Serial.println("Connect Failed");
-        }
-        else if (error == OTA_RECEIVE_ERROR)
-        {
-            Serial.println("Receive Failed");
-        }
-        else if (error == OTA_END_ERROR)
-        {
-            Serial.println("End Failed");
-        }
-    });
+    ArduinoOTA.setHostname("ESPClock");
     ArduinoOTA.begin();
-    Serial.println("Ready");
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
+
+    Dht11.begin();
+
+    Display.shutdown(0, false);
+    Display.setIntensity(0, 0);
+    Display.clearDisplay(0);
+
+    TimeClient.begin();
+}
+
+void setChar(int digit, char value, bool dp)
+{
+    switch (digit)
+    {
+    case 0:
+        Display.setChar(0, 0, value, dp);
+        break;
+    case 1:
+        Display.setChar(0, 3, value, dp);
+        break;
+    case 2:
+        // this one is upside down (on purpose)
+        Display.setCharInv(0, 2, value, dp);
+        break;
+    case 3:
+        Display.setChar(0, 1, value, dp);
+        break;
+    }
+}
+
+void displayTime()
+{
+    const int h = TimeClient.getHours();
+    const int m = TimeClient.getMinutes();
+
+    setChar(0, h / 10, false);
+    setChar(1, h % 10, true);
+    setChar(2, m / 10, true);
+    setChar(3, m % 10, false);
+}
+#if 0
+void displayTemperature()
+{
+    // Reading temperature or humidity takes about 250 milliseconds!
+    // Sensor readings may also be up to 2 seconds 'old' (its a very slow
+    // sensor)
+    const int h = Dht11.readHumidity();
+    // Read temperature as Celsius (the default)
+    const int t = Dht11.readTemperature();
+
+    // Check if any reads failed and exit early (to try again).
+    if (isnan(h) || isnan(t))
+    {
+        Serial.println("Failed to read from DHT sensor!");
+        return;
+    }
+
+    setChar(0, t / 10, false);
+    setChar(1, t % 10, false);
+    setChar(2, 'C', true);
+    setChar(3, ' ', false);
+}
+#else
+void displayTemperature()
+{
+    static unsigned long lastReadTime = 0;
+    static int temperature = 0;
+
+    const unsigned long elapsed = millis() - lastReadTime;
+    if (elapsed > 60000 || lastReadTime == 0)
+    {
+        WiFiClient client;
+        HTTPClient http;
+        if (http.begin(client, "http://rpi.local/?temperature"))
+        {
+            const int httpCode = http.GET();
+            if (httpCode > 0)
+            {
+                if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
+                {
+                    const String payload = http.getString();
+
+                    temperature = ceil(payload.toFloat());
+                }
+            }
+        }
+        lastReadTime = millis();
+    }
+    setChar(0, (temperature / 10) != 0 ? temperature / 10 : ' ', false);
+    setChar(1, temperature % 10, false);
+    setChar(2, 'C', true);
+    setChar(3, ' ', false);
+}
+#endif
+void updateBrightness()
+{
+    static unsigned long lastReadTime = millis();
+    static int currentValue = -1;
+
+    const unsigned long elapsed = millis() - lastReadTime;
+    if (elapsed < 500)
+        return;
+
+    const int ambientLight = 1024 - analogRead(PHOTODIODE_PIN);
+
+    if (currentValue != ambientLight)
+    {
+        Display.setIntensity(0, ambientLight / 1024.f * 15);
+        currentValue = ambientLight;
+    }
+    lastReadTime = millis();
+}
+
+void updateDisplay()
+{
+    static unsigned long startTime = millis();
+    static int mode = 0;
+
+    const unsigned long elapsed = millis() - startTime;
+
+    if (mode % 2 == 0)
+    {
+        displayTime();
+        if (elapsed > 5000)
+        {
+            mode++;
+            startTime = millis();
+        }
+    }
+    else
+    {
+        displayTemperature();
+        if (elapsed > 2000)
+        {
+            mode++;
+            startTime = millis();
+        }
+    }
 }
 
 void loop()
 {
     ArduinoOTA.handle();
+    TimeClient.update();
 
-    digitalWrite(LED_BUILTIN, HIGH); // turn the LED on (HIGH is the voltage level)
-    delay(200);                      // wait for a second
-    digitalWrite(LED_BUILTIN, LOW);  // turn the LED off by making the voltage LOW
-    delay(200);                      // wait for a second
+    updateBrightness();
+
+    updateDisplay();
 }
