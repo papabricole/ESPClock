@@ -1,0 +1,51 @@
+*Pick And Place List
+*Company=
+*Author=
+*eMail=
+*
+*Project=ESPClock
+*Date=16:38:08
+*CreatedBy=Fritzing 0.9.3b.04.19.5c895d327c44a3114e5fcc9d8260daf0cbb52806
+*
+*
+*Coordinates in mm, always center of component
+*Origin 0/0=Lower left corner of PCB
+*Rotation in degree (0-360, math. pos.)
+*
+*No;Value;Package;X;Y;Rotation;Side;Name
+1;10k;0805 [SMD];79.2778;-5.79516;0;Top;R9
+2;10k;0805 [SMD];32.5327;-28.1562;-90;Top;R8
+3;;;49.1575;-28.085;90;Bottom;J1
+4;;;63.2506;-26.3831;0;Bottom;IMG1
+5;;;36.8365;-17.5139;180;Bottom;7 Segment2
+6;;THT;25.0997;-2.52181;90;Bottom;UART
+7;10µF;A 3216 [SMD, tantalum];3.96077;-15.4472;180;Top;C4
+8;100nF;100 mil [THT, multilayer];42.4388;-24.0832;90;Bottom;C7
+9;10k;0805 [SMD];34.5647;-28.1382;90;Top;R3
+10;;;23.8685;-5.08964;-90;Bottom;TXT1
+11;10k;0805 [SMD];57.0296;-23.7516;180;Top;R10
+12;;;85.0966;-17.5139;180;Bottom;7 Segment4
+13;;;26.4791;-5.05437;-90;Bottom;TXT1
+14;10k;0805 [SMD];16.7938;-10.3672;0;Top;R6
+15;;photocell;49.1807;-2.29011;0;Bottom;R7
+16;;;12.7065;-17.5139;180;Bottom;7 Segment1
+17;;sma-diode-kit;4.70676;-19.5112;0;Top;D2
+18;;dil24;56.9168;-16.2092;0;Bottom;U2
+19;10k;0805 [SMD];16.7938;-12.9072;6.36109e-15;Top;R4
+20;;;29.2308;-5.75993;-90;Bottom;TXT1
+21;;;13.7368;-22.5592;0;Bottom;Via3
+22;;;29.9695;-16.9701;90;Top;U1
+23;adjustable;sot223;5.74603;-10.551;90;Top;IC1
+24;;;60.9666;-17.5139;180;Bottom;7 Segment3
+25;;;51.2441;-6.33613;0;Bottom;TXT2
+26;10k;0805 [SMD];30.5007;-28.1382;90;Top;R2
+27;;;51.8367;-17.7332;0;Bottom;Via10
+28;10k;0805 [SMD];16.7938;-15.4472;0;Top;R5
+29;10µF;A 3216 [SMD, tantalum];4.10262;-5.50291;0;Top;C5
+30;;[THT];94.4243;-24.7471;0;Bottom;RESET
+31;;;93.9454;-3.05302;0;Bottom;IMG2
+32;;;12.9748;-12.9072;0;Bottom;Via9
+33;;;21.3285;-5.51297;-90;Bottom;TXT1
+34;;;8.01828;-24.8227;0;Bottom;Power plug1
+35;;[THT];94.5372;-10.2973;0;Bottom;FLASH
+36;;;81.7651;-16.5885;-90;Bottom;DHT12
