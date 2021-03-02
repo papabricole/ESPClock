@@ -94,7 +94,7 @@ void displayTime()
     setChar(2, m / 10, true);
     setChar(3, m % 10, false);
 }
-#if 0
+#if USE_DHT11
 void displayTemperature()
 {
     // Reading temperature or humidity takes about 250 milliseconds!
