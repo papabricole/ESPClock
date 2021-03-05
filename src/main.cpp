@@ -22,6 +22,7 @@ Flash ide mode:  DIO
 #include <DHT.h>
 #include <LedControl.h>
 #include <NTPClient.h>
+#include <PubSubClient.h>
 
 #define BUZZER_PIN 16
 #define DHT11_PIN 5
@@ -35,6 +36,13 @@ WiFiUDP NtpUDP;
 DHT Dht11(DHT11_PIN, DHT11);
 LedControl Display(MOSI_PIN, CLK_PIN, CS_PIN, 1);
 NTPClient TimeClient(NtpUDP, "europe.pool.ntp.org", 3600, 60000);
+
+void MqttCallback(char *topic, byte *payload, unsigned int length);
+
+WiFiClient espClient;
+PubSubClient mqtt("quadra.local", 1883, MqttCallback, espClient);
+
+int temperature = 0;
 
 void setup()
 {
@@ -119,31 +127,16 @@ void displayTemperature()
 #else
 void displayTemperature()
 {
-    static unsigned long lastReadTime = 0;
-    static int temperature = 0;
-
-    const unsigned long elapsed = millis() - lastReadTime;
-    if (elapsed > 60000 || lastReadTime == 0)
+    if (temperature < 0)
     {
-        WiFiClient client;
-        HTTPClient http;
-        if (http.begin(client, "http://rpi.local/?temperature"))
-        {
-            const int httpCode = http.GET();
-            if (httpCode > 0)
-            {
-                if (httpCode == HTTP_CODE_OK || httpCode == HTTP_CODE_MOVED_PERMANENTLY)
-                {
-                    const String payload = http.getString();
-
-                    temperature = ceil(payload.toFloat());
-                }
-            }
-        }
-        lastReadTime = millis();
+        setChar(0, '-', false);
+        setChar(1, abs(temperature), false);
     }
-    setChar(0, (temperature / 10) != 0 ? temperature / 10 : ' ', false);
-    setChar(1, temperature % 10, false);
+    else
+    {
+        setChar(0, (temperature / 10) != 0 ? temperature / 10 : ' ', false);
+        setChar(1, temperature % 10, false);
+    }
     setChar(2, 'C', true);
     setChar(3, ' ', false);
 }
@@ -194,10 +187,56 @@ void updateDisplay()
     }
 }
 
+void MqttCallback(char *topic, byte *payload, unsigned int length)
+{
+#if 0
+    Serial.print("Message arrived [");
+    Serial.print(topic);
+    Serial.print("] ");
+    for (int i = 0; i < length; i++)
+    {
+        Serial.print((char)payload[i]);
+    }
+    Serial.println();
+#endif
+    temperature = atoi((const char *)payload);
+
+    // single digit for negative values....
+    if (temperature < -9)
+        temperature = -9;
+}
+
+void updateMqtt()
+{
+    if (!mqtt.connected())
+    {
+        Serial.print("Attempting MQTT connection...");
+        String clientId = "ESPClock-" + String(random(0xffff), HEX);
+
+        // Attempt to connect
+        if (mqtt.connect(clientId.c_str(), "mqtt", "mqtt"))
+        {
+            Serial.println("connected");
+            mqtt.subscribe("sensors/accuweather/temperature");
+        }
+        else
+        {
+            Serial.print("failed, rc=");
+            Serial.print(mqtt.state());
+        }
+    }
+    else
+    {
+        mqtt.loop();
+    }
+}
+
 void loop()
 {
     ArduinoOTA.handle();
     TimeClient.update();
+
+    updateMqtt();
 
     updateBrightness();
 
